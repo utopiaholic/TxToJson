@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32112.339
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TxToJson", "TxToJson.csproj", "{ED7F7935-CEAA-42FF-A3EE-2228EF80CE96}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ED7F7935-CEAA-42FF-A3EE-2228EF80CE96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED7F7935-CEAA-42FF-A3EE-2228EF80CE96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED7F7935-CEAA-42FF-A3EE-2228EF80CE96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED7F7935-CEAA-42FF-A3EE-2228EF80CE96}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0576EDED-7A82-4711-A2B3-18EA6755E461}
+	EndGlobalSection
+EndGlobal
