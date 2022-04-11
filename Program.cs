@@ -33,7 +33,8 @@ try
         Console.WriteLine($"{timer.Elapsed} : --> Inserted Transactions");
         fromDate = fromDate.AddDays(1);
         toDate = toDate.AddDays(1);
-    }SW
+    }
+    
 }
 catch (Exception ex)
 {
