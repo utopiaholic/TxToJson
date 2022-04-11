@@ -13,11 +13,12 @@ try
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
     IConfiguration config = builder.Build();
-    const string DbKey = "MyDatabase";
+    const string _mySql = "MySql";
+    const string _mongoDb = "MySql";
 
-    var t = new TransactionConverter(config, DbKey);
-    DateTime fromDate = new DateTime(2020, 01, 01);
-    DateTime toDate = new DateTime(2020, 01, 02);
+    var t = new TransactionConverter(config, _mySql, _mongoDb);
+    DateTime fromDate = new DateTime(2020, 04, 11);
+    DateTime toDate = new DateTime(2020, 04, 12);
     Stopwatch timer = Stopwatch.StartNew();
     while (toDate < new DateTime(2022, 04, 01))
     {
@@ -28,12 +29,11 @@ try
         //await File.WriteAllTextAsync("./output.json", json);
         //Console.WriteLine("File Created");
         Console.WriteLine($"{timer.Elapsed} : --> Inserting Transactions");
-        await t.InsertTransactions(tx);
+        t.InsertTransactions(tx);
         Console.WriteLine($"{timer.Elapsed} : --> Inserted Transactions");
         fromDate = fromDate.AddDays(1);
-        fromDate = toDate.AddDays(1);
-    }
-    
+        toDate = toDate.AddDays(1);
+    }SW
 }
 catch (Exception ex)
 {
@@ -52,14 +52,16 @@ public class Transaction
 public class TransactionConverter
 {
     private readonly IConfiguration _config;
-    private readonly string _dbKey;
+    private readonly string _mySqlKey;
+    private readonly string _mongoDbKey;
     private Dictionary<uint, string> _events { get; set; }
     private Dictionary<uint, string> _attributes { get; set; }
 
-    public TransactionConverter(IConfiguration config, string dbKey)
+    public TransactionConverter(IConfiguration config, string dbKey, string mongoDbKey)
     {
         _config = config;
-        _dbKey = dbKey;
+        _mySqlKey = dbKey;
+        _mongoDbKey = mongoDbKey;
         GetEvents();
         GetAttributes();
     }
@@ -67,7 +69,7 @@ public class TransactionConverter
     public async void GetEvents()
     {
         _events = new Dictionary<uint, string>();
-        using var conn = new MySqlConnection(_config.GetConnectionString(_dbKey));
+        using var conn = new MySqlConnection(_config.GetConnectionString(_mySqlKey));
         conn.Open();
 
         using (var results = await conn.ExecuteReaderAsync($@"
@@ -84,7 +86,7 @@ public class TransactionConverter
     public async void GetAttributes()
     {
         _attributes = new Dictionary<uint, string>();
-        using var conn = new MySqlConnection(_config.GetConnectionString(_dbKey));
+        using var conn = new MySqlConnection(_config.GetConnectionString(_mySqlKey));
         conn.Open();
 
         using (var results = await conn.ExecuteReaderAsync($@"
@@ -101,7 +103,7 @@ public class TransactionConverter
     public async Task<List<Transaction>> GetTransactions(DateTime fromDate, DateTime toDate)
     {
         List<Transaction> transactions = new List<Transaction>();
-        using var conn = new MySqlConnection(_config.GetConnectionString(_dbKey));
+        using var conn = new MySqlConnection(_config.GetConnectionString(_mySqlKey));
         conn.Open();
 
         object args = new { from_date = fromDate, to_date = toDate };
@@ -111,12 +113,16 @@ public class TransactionConverter
         {
             while (results.Read())
             {
-                var transactionID = (ulong)results["transaction_id"];
-                Transaction t = new Transaction();
-                t.ID = (ulong)results["transaction_id"];
-                t.EventName = _events[(uint)results["event_type_id"]];
-                var success = await GetTransactionData(t);
-                transactions.Add(t);
+                if (_events.ContainsKey((uint)results["event_type_id"]))
+                {
+                    var transactionID = (ulong)results["transaction_id"];
+                    Transaction t = new Transaction();
+                    t.ID = (ulong)results["transaction_id"];
+                    t.EventName = _events[(uint)results["event_type_id"]];
+                    t.DateCreated = (DateTime)results["date_time"];
+                    var success = await GetTransactionData(t);
+                    transactions.Add(t);
+                }
             }
         }
 
@@ -128,7 +134,7 @@ public class TransactionConverter
     {
         bool success = false;
 
-        using var conn = new MySqlConnection(_config.GetConnectionString(_dbKey));
+        using var conn = new MySqlConnection(_config.GetConnectionString(_mySqlKey));
         conn.Open();
 
         var args = new { id = transaction.ID };
@@ -151,13 +157,31 @@ public class TransactionConverter
     public async Task<bool> InsertTransactions(List<Transaction> t)
     {
         bool success = false;
-        var mongo = new MongoClient("mongodb://localhost:27017");
 
-        var db = mongo.GetDatabase("vertexone");
-        var txs = db.GetCollection<Transaction>("transactions");
+        if(t.Count <= 0)
+        {
+            return success;
+        }
 
-        List<BsonDocument> batch = new List<BsonDocument>();
-        await txs.InsertManyAsync(t);
+        try
+        {
+            var mongo = new MongoClient(_mongoDbKey);
+
+            var db = mongo.GetDatabase("vertexone");
+            var txs = db.GetCollection<Transaction>("transactions");
+
+            List<BsonDocument> batch = new List<BsonDocument>();
+            await txs.InsertManyAsync(t);
+        }
+        catch (MongoBulkWriteException<Transaction> ex)
+        {
+            // Fetch the write errors and match them to what we sent in to be inserted
+            var failedDocumets = ex.WriteErrors.Select(x => ex.Result.ProcessedRequests[x.Index] as InsertOneModel<Transaction>)
+                .Select(x => x.Document).ToArray();
+
+            Console.WriteLine("Failed Inserts");
+            Console.WriteLine(failedDocumets.ToJson());
+        }
 
         return success;
     }
